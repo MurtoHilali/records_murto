@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vinyl shelf</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f7f7f7;
+      color: #333;
+      padding: 1rem;
+    }
+    #container {
+      position: relative;
+      max-width: 400px;
+      width: 100%;
+    }
+    /* record info area (split into two columns) */
+    #record-info {
+      display: flex;
+      max-width: 400px;
+      margin-bottom: 0.5rem;
+      border: 2px solid #ccc;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+    /* left column: album cover + title/artist/year */
+    #info-left {
+      flex: 0 0 40%; /* or adjust width as you like */
+      border-right: 2px solid #ccc;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: left; /* centers content horizontally */
+      background: #fff;
+    }
+    /* container that holds the album cover */
+    #cover-container {
+      width: 100%;             /* so it doesn't span the full column width */
+      aspect-ratio: 1 / 1;    /* keeps it square */
+      margin-bottom: 0.5rem;
+      border-radius: 5px; /* adds rounded corners */
+      border: 1px solid #ccc; /* optional border around the cover */
+      background: #eee;       /* optional background fill */
+      overflow: hidden;
+    }
+    /* the actual cover image */
+    #cover-art {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated; /* if you want that retro feel */
+    }
+    #info-left h2 {
+      font-size: 1rem;
+      margin-bottom: 0.2rem;
+      text-align: left;
+    }
+    #info-left p {
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+      text-align: left;
+    }
+    /* right column: notes/description */
+    #info-right {
+      flex: 1;
+      padding: 0.5rem;
+      background: #fff;
+    }
+    #info-right p {
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    /* album art container - behind the pixel art (if you still want it) */
+    #album-art {
+      position: absolute;
+      top: 42.9%;
+      left: 14.9%;
+      z-index: 1;
+      width: 68px;
+      height: 68px;
+      transform: translate(-48%, -50%) skewX(4deg) rotate(-25deg);
+      overflow: hidden;
+    }
+    #album-art img {
+      width: 110%;
+      height: 110%;
+      object-fit: cover;
+    }
+    /* pixel art on top, with a transparent cutout for the vinyl */
+    .pixel-art {
+      position: relative;
+      z-index: 2;
+      width: 175%;
+      height: auto;
+      display: block;
+      transform: translate(-20%, 0%);
+    }
+    /* arrow buttons */
+    .arrow-btn {
+      position: absolute;
+      bottom: 15%;
+      width: 30px;
+      height: 30px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.2s ease;
+      z-index: 3;
+    }
+    .arrow-btn:hover {
+      transform: scale(1.1);
+    }
+    .arrow-btn:active {
+      transform: scale(0.95);
+    }
+    #prev-btn {
+      left: 30%;
+      background-image: url('back.png');
+    }
+    #next-btn {
+      right: 30%;
+      background-image: url('forward.png');
+    }
+    @media (max-width: 600px) {
+      /* adjust for smaller screens */
+      #record-info {
+        font-size: 0.9rem;
+      }
+      #album-art {
+        width: 40px;
+        height: 40px;
+      }
+      .arrow-btn {
+        width: 25px;
+        height: 25px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- new record info layout: left column for cover + text, right column for notes -->
+  <div id="record-info">
+    <div id="info-left">
+      <div id="cover-container">
+        <img id="cover-art" src="" alt="album cover" />
+      </div>
+      <h2 id="title">title goes here</h2>
+      <p id="artist">artist name</p>
+      <p id="year">year</p>
+    </div>
+    <div id="info-right">
+      <p id="my-note">notes / description go here</p>
+    </div>
+  </div>
+
+  <div id="container">
+    <!-- album art behind the pixel art (optional) -->
+    <div id="album-art"></div>
+
+    <!-- pixel art with the transparent cutout -->
+    <img class="pixel-art" src="cropped-pixel-art.png" alt="vinyl shelf" />
+
+    <!-- arrow buttons for flipping through records -->
+    <div id="prev-btn" class="arrow-btn"></div>
+    <div id="next-btn" class="arrow-btn"></div>
+  </div>
+
+  <script>
+    const discogsUsername = "murtohilali";
+    const discogsToken = "fJPKYtbTsjKePyhSAfWKlBaJydRIdlyTxCteGLKe";
+
+    let releases = [];
+    let currentIndex = 0;
+    let notesMapping = {};
+
+    // DOM elements
+    const titleEl = document.getElementById("title");
+    const artistEl = document.getElementById("artist");
+    const yearEl = document.getElementById("year");
+    const noteEl = document.getElementById("my-note");
+    const albumArtEl = document.getElementById("album-art");
+    const coverArtEl = document.getElementById("cover-art");
+
+    const prevBtn = document.getElementById("prev-btn");
+    const nextBtn = document.getElementById("next-btn");
+
+    // load custom JSON notes
+    fetch('discogs_records.json')
+      .then(response => response.json())
+      .then(data => {
+        data.forEach(item => {
+          notesMapping[String(item.release_id)] = item.notes;
+        });
+        if (releases.length > 0) {
+          showRecord(currentIndex);
+        }
+      })
+      .catch(err => console.error("Error loading JSON notes:", err));
+
+    // fetch discogs collection from folder 0
+    const url = `https://api.discogs.com/users/${discogsUsername}/collection/folders/0/releases?token=${discogsToken}&per_page=50`;
+
+    async function fetchCollection() {
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        releases = data.releases || [];
+        showRecord(0);
+      } catch (err) {
+        console.error("Error fetching discogs data:", err);
+      }
+    }
+
+    function showRecord(index) {
+      if (!releases.length) return;
+      // wrap around if needed
+      currentIndex = (index + releases.length) % releases.length;
+      const record = releases[currentIndex].basic_information;
+
+      // text content
+      titleEl.textContent = record.title;
+      artistEl.textContent = record.artists.map(a => a.name).join(", ");
+      yearEl.textContent = record.year || "unknown year";
+
+      // fetch custom note if exists
+      const customNote = notesMapping[String(record.id)];
+      noteEl.textContent = customNote && customNote.trim() !== ""
+        ? customNote
+        : `this is a personal note for record #${currentIndex + 1}`;
+
+      // album cover
+      const coverImage = record.cover_image;
+      if (coverImage) {
+        coverArtEl.src = coverImage;         // for the info box
+        albumArtEl.innerHTML = `<img src="${coverImage}" alt="${record.title}" />`;  // behind the pixel art
+      } else {
+        coverArtEl.src = "placeholder.png";
+        albumArtEl.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; width:100%; height:100%; background:pink;">?</div>`;
+      }
+    }
+
+    // next/prev
+    prevBtn.addEventListener("click", () => showRecord(currentIndex - 1));
+    nextBtn.addEventListener("click", () => showRecord(currentIndex + 1));
+
+    // arrow key nav
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") showRecord(currentIndex - 1);
+      else if (e.key === "ArrowRight") showRecord(currentIndex + 1);
+    });
+
+    fetchCollection();
+  </script>
+</body>
+</html>

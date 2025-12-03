@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Murto Hilali - Record</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --player-height: 240px; 
+      --bg-color: #e0e0e0; 
+      --player-bg: #e6e2d3;
+      --border-color: #111;
+      --accent-color: #d35400;
+      --max-width: 600px; 
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'VT323', monospace;
+      background-color: var(--bg-color);
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    /* --- 1. STATS HEADER --- */
+    #stats-bar {
+      width: 100%;
+      max-width: var(--max-width);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px dashed #555;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      font-size: 1.4rem;
+      color: #333;
+    }
+
+    /* The Center Link */
+    .home-link {
+      text-decoration: none;
+      color: #333;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .home-link:hover { color: var(--accent-color); }
+    
+    #stats-count { color: var(--accent-color); }
+
+    /* --- 2. PIXEL ART STAGE (THE GLUE FIX) --- */
+    #stage {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      
+      /* THIS IS KEY: Lock aspect ratio to match your image dimensions. 
+         Assuming your pixel art is roughly 5:4. Adjust if image is different. */
+      aspect-ratio: 500 / 400; 
+      
+      margin-bottom: 20px; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* The Room is absolute now to fill the stage perfectly */
+    #pixel-room {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      image-rendering: pixelated;
+      pointer-events: none;
+      object-fit: contain;
+    }
+
+    /* The Record Behind */
+    #leaning-record {
+      position: absolute;
+      z-index: 1;
+      
+      /* These % are now relative to the Locked Aspect Ratio Stage */
+      top: 33%;   
+      left: 23%;
+      width: 12%; /* Responsive width (approx 50px on desktop) */
+      aspect-ratio: 1/1; /* Keeps it square */
+      
+      transform: translate(-48%, -50%) skewX(4deg) rotate(-25deg);
+      overflow: hidden;
+      background: #000;
+    }
+    
+    #leaning-record img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.9;
+    }
+
+    /* --- 3. MUSIC PLAYER --- */
+    #music-player {
+      background-color: var(--player-bg);
+      border: 4px solid var(--border-color);
+      width: 100%;
+      max-width: var(--max-width);
+      height: var(--player-height);
+      display: flex;
+      box-shadow: 8px 8px 0px rgba(0,0,0,0.2);
+      transition: height 0.3s ease;
+    }
+
+    /* Left Side: Controls & Text */
+    .player-controls-area {
+      flex: 1; 
+      height: 100%;
+      padding: 20px;
+      display: flex;
+      flex-direction: column; 
+      overflow: hidden; 
+    }
+
+    /* === SCROLLING TEXT LOGIC === */
+    .track-header { flex-shrink: 0; margin-bottom: 8px; }
+
+    .scroll-window {
+      width: 100%;
+      overflow: hidden; 
+      white-space: nowrap;
+      display: block;
+    }
+
+    .scroll-content {
+      display: inline-block;
+      white-space: nowrap;
+      text-overflow: ellipsis; 
+      vertical-align: top;
+      transition: transform 0.2s;
+    }
+
+    #title-content { 
+      font-size: 2.2rem;
+      line-height: 1;
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
+    
+    #meta-content {
+      font-size: 1.4rem;
+      color: #555;
+    }
+
+    @keyframes scroll-left {
+      0% { transform: translateX(0); }
+      20% { transform: translateX(0); }
+      100% { transform: translateX(var(--scroll-dist)); }
+    }
+
+    .is-overflowing { cursor: help; }
+    .is-overflowing:hover {
+      animation: scroll-left 4s linear infinite alternate; 
+    }
+
+    .track-note {
+      flex-grow: 1; 
+      font-size: 1.25rem;
+      color: var(--accent-color);
+      line-height: 1.2;
+      border-top: 2px dashed #999;
+      padding-top: 10px;
+      margin-bottom: 10px;
+      overflow-y: auto;   
+      scrollbar-width: thin;
+      scrollbar-color: #999 transparent;
+    }
+    
+    .button-row { flex-shrink: 0; display: flex; gap: 15px; }
+
+    .nav-btn {
+      width: 40px; 
+      height: 40px;
+      background-color: transparent;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      border: none;
+      cursor: pointer;
+      image-rendering: pixelated;
+      opacity: 0.8;
+      transition: opacity 0.1s, transform 0.1s;
+    }
+    .nav-btn:hover { opacity: 1; transform: scale(1.1); }
+    .nav-btn:active { transform: scale(0.9); }
+    
+    #btn-prev { background-image: url('back.png'); }
+    #btn-next { background-image: url('forward.png'); }
+
+    .player-art {
+      height: 100%;
+      aspect-ratio: 1 / 1;
+      border-left: 4px solid var(--border-color);
+      background: #000;
+      position: relative;
+    }
+
+    .player-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* --- MOBILE RESPONSIVENESS --- */
+    @media (max-width: 600px) {
+      #stage {
+        width: 100%; 
+        margin-bottom: 15px;
+      }
+      
+      #music-player { height: 150px; }
+
+      .player-controls-area { padding: 10px; }
+      
+      #title-content { font-size: 1.5rem; }
+      #meta-content { font-size: 1.1rem; }
+      
+      .track-note { 
+        font-size: 1rem; 
+        padding-top: 5px; 
+        margin-bottom: 5px; 
+        line-height: 1.1;
+      }
+      
+      .nav-btn { width: 30px; height: 30px; }
+      
+      /* Make stats bar smaller on mobile */
+      #stats-bar { font-size: 1.1rem; }
+      .home-link { margin: 0 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="stats-bar">
+    <a href="https://murto.co" class="home-link">[ home ]</a>
+    <span>[ my vinyl collection ]</span>
+    <span id="stats-count">Loading...</span>
+  </div>
+
+  <div id="stage">
+    <div id="leaning-record">
+      <img id="stage-img" src="" alt="">
+    </div>
+    <img id="pixel-room" src="cropped-pixel-art.png" alt="My Room">
+  </div>
+
+  <div id="music-player">
+    <div class="player-controls-area">
+      
+      <div class="track-header">
+        <div class="scroll-window">
+          <div id="title-content" class="scroll-content">
+            Loading...
+          </div>
+        </div>
+        <div class="scroll-window">
+          <div id="meta-content" class="scroll-content">
+            <span id="artist">...</span> • <span id="year">...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="track-note" id="my-note">...</div>
+      
+      <div class="button-row">
+        <button id="btn-prev" class="nav-btn" aria-label="Previous"></button>
+        <button id="btn-next" class="nav-btn" aria-label="Next"></button>
+      </div>
+    </div>
+    <div class="player-art">
+      <img id="player-img" src="" alt="cover">
+    </div>
+  </div>
+
+  <script>
+    const DISCOGS_USERNAME = "murtohilali"; 
+    const DISCOGS_TOKEN = "fJPKYtbTsjKePyhSAfWKlBaJydRIdlyTxCteGLKe"; 
+    
+    let collection = [];
+    let personalNotes = {};
+    let currentIndex = 0;
+
+    const els = {
+      titleContainer: document.getElementById('title-content'),
+      artist: document.getElementById('artist'),
+      year: document.getElementById('year'),
+      metaContainer: document.getElementById('meta-content'),
+      note: document.getElementById('my-note'),
+      playerImg: document.getElementById('player-img'),
+      stageImg: document.getElementById('stage-img'),
+      btnPrev: document.getElementById('btn-prev'),
+      btnNext: document.getElementById('btn-next'),
+      statsCount: document.getElementById('stats-count')
+    };
+
+    const fetchNotes = fetch('discogs_records.json')
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(item => personalNotes[item.release_id] = item.notes);
+      });
+
+    const fetchDiscogs = fetch(`https://api.discogs.com/users/${DISCOGS_USERNAME}/collection/folders/0/releases?token=${DISCOGS_TOKEN}&per_page=100&sort=added&sort_order=desc`)
+      .then(res => res.json())
+      .then(data => {
+        collection = data.releases || [];
+      });
+
+    Promise.all([fetchNotes, fetchDiscogs])
+      .then(() => {
+        if (collection.length > 0) {
+          // Dynamic Count based on array length
+          els.statsCount.textContent = `[ ${collection.length} records ]`;
+          updateDisplay(0);
+        } else {
+          els.titleContainer.textContent = "Empty Collection";
+          els.statsCount.textContent = "[ 0 records ]";
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        els.statsCount.textContent = "[ Error ]";
+      });
+
+    function updateDisplay(index) {
+      if (index < 0) index = collection.length - 1;
+      if (index >= collection.length) index = 0;
+      
+      currentIndex = index;
+      const item = collection[currentIndex];
+      const info = item.basic_information;
+      const id = item.id;
+
+      // Update Text Content
+      els.titleContainer.textContent = info.title;
+      els.artist.textContent = info.artists.map(a => a.name).join(", ");
+      els.year.textContent = info.year || "Unknown";
+      
+      // Update Notes
+      const note = personalNotes[id];
+      els.note.textContent = note ? `"${note}"` : "";
+
+      // Update Images
+      const imgUrl = info.cover_image || 'https://via.placeholder.com/200';
+      els.playerImg.src = imgUrl;
+      els.stageImg.src = imgUrl;
+
+      // Check overflow for scrolling
+      requestAnimationFrame(() => {
+        checkOverflow(els.titleContainer);
+        checkOverflow(els.metaContainer);
+      });
+    }
+
+    function checkOverflow(element) {
+      element.classList.remove('is-overflowing');
+      element.style.removeProperty('--scroll-dist');
+
+      const parentWidth = element.parentElement.clientWidth;
+      const contentWidth = element.scrollWidth;
+
+      if (contentWidth > parentWidth) {
+        element.classList.add('is-overflowing');
+        const dist = parentWidth - contentWidth; 
+        element.style.setProperty('--scroll-dist', `${dist}px`);
+      }
+    }
+
+    els.btnPrev.addEventListener('click', () => updateDisplay(currentIndex - 1));
+    els.btnNext.addEventListener('click', () => updateDisplay(currentIndex + 1));
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.key === "ArrowLeft") updateDisplay(currentIndex - 1);
+      if (e.key === "ArrowRight") updateDisplay(currentIndex + 1);
+    });
+  </script>
+</body>
+</html>
